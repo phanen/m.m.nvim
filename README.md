@@ -1,44 +1,42 @@
 # m.m.nvim
+> experiment
 
-A meta abstraction for `vim.keymap.set`.
-* Similar to neovim's meta accessors (e.g. `vim.bo[bufnr]` -> `api.nvim_get_option_value`).
-* But accessors are used for currying.
+## map
+* no `remap`, always use `noremap`
+* when use `expr`, always `replace_keycodes`
 
-## Example
 ```lua
--- backward compatible, m -> vim.keymap.set
-m('n', lhs, rhs, { silent = true })
+local map = require('m.m').map
+map.nx.expr['C'] = [[v:register ==# '+' ? '"kC' : '"'.v:register.'C']]
+map.nx['<c-p>'] = '"kP'
 
--- vim.keymap.set({ 'n', 'x' }, lhs, rhs)
-m.nx(lhs, rhs)
-
--- vim.keymap.set({ 'n', 'x', 'i' }, lhs, rhs, { buffer = bufnr, expr = true })
-m.nxi[bufnr].expr(lhs, rhs)
-
--- vim.keymap.set('nx', lhs, rhs, { buffer = bufnr, expr = true })
-m.n[bufnr].expr(lhs, rhs)
-
--- vim.keymap.set({ '!' }, lhs, rhs, { buffer = bufnr, expr = true, silent = true, remap = true })
-m['!'].expr.silent.remap[bufnr](lhs, rhs)
+-- buffer-local
+local n = map.n[0]
+n['u'] = '<c-u>'
+n['a'] = '<c-u>'
 ```
 
-## Tip
-This module can only "turn on" flag, if you find opposite patterns (e.g. `replace_keycodes = false` is needed):
+## autogroup
 ```lua
-vim.keymap.set(
-  'nx',
-  '<down>',
-  'v:count ? "<down>" : "g<down>"',
-  { expr = true, replace_keycodes = false }
-)
+local aug = require('m.m').augroup
+local com = require('m.m').command
 
-vim.keymap.set(
-  'nx',
-  '<down>',
-  function() return vim.v.count ~= 0 and '<down>' or 'g<down>' end,
-  { expr = true }
-)
-
--- so it shoud be:
-m.nx.expr('<down>', function() return vim.v.count ~= 0 and '<down>' or 'g<down>' end)
+aug.bigfile = { 'BufReadPre', function(_) u.misc.bigfile_preset(_) end }
+aug.lastpos = { 'BufReadPost', [[sil! norm! g`"zv']] }
+aug.autowrite = -- auto reload buffer on external write
+  { { 'FocusGained', 'BufEnter', 'CursorHold' }, [[if getcmdwintype() == ''| checkt | endif]] }
 ```
+
+## command
+```lua
+com.AppendModeline = function() return u.misc.append_modeline() end
+com.EditFtplugin =
+  { function(_) return u.misc.edit_ftplugin(_.fargs[1]) end, nargs = '*', complete = 'filetype' }
+com.Ghist = [[G log -p --follow -- %]]
+```
+
+## TODO
+Maybe it's meaningless to integrate tons of features (which may never be used), but here's the main ideas...
+* [ ] inject fallback via maparg + setfenv
+* [ ] easy hydra key builder
+* [ ] make getter meaningful in each context
