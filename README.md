@@ -11,7 +11,7 @@ map.nx.expr['C'] = [[v:register ==# '+' ? '"kC' : '"'.v:register.'C']]
 map.nx['<c-p>'] = '"kP'
 
 -- buffer-local
-local n = map.n[0]
+local n = map[0].n
 n['u'] = '<c-u>'
 n['a'] = '<c-u>'
 ```

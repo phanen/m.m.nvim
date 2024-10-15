@@ -1,53 +1,60 @@
 -- meta abstractions
 local M = {}
 
-local api = vim.api
+---@class vim.keymap.ctx
+---@field opts? vim.keymap.set.Opts
+---@field buf? integer
+---@field mode? string[]
+---@field parent table
+---@field key string|integer
 
----@param mode string[]
----@param opts vim.keymap.set.Opts
-local function new_mapper(mode, opts)
-  opts.noremap = true
+local api = vim.api
+local extend = function(...) return vim.tbl_extend('force', ...) end
+
+---@param ctx vim.keymap.ctx
+local function make_map(ctx)
+  local make_child = function(ext)
+    local _ctx = extend(ctx, ext or {})
+    local opts, buf, mode = _ctx.opts, _ctx.buf, _ctx.mode
+    local child = setmetatable({}, {
+      __index = function(self, key) return make_map(extend(_ctx, { parent = self, key = key })) end,
+      __newindex = function(_, lhs, rhs)
+        if type(rhs) == 'function' then
+          opts.callback, rhs = rhs, ''
+        end
+        if buf then
+          for _, m in ipairs(mode) do
+            api.nvim_buf_set_keymap(buf, m, lhs, rhs, opts)
+          end
+        else
+          for _, m in ipairs(mode) do
+            api.nvim_set_keymap(m, lhs, rhs, opts)
+          end
+        end
+        opts.callback = nil
+      end,
+    })
+    rawset(ctx.parent, ctx.key, child)
+    return child
+  end
+
+  local key = ctx.key
+  if not ctx.buf and type(ctx.key) == 'number' then return make_child { buf = ctx.key } end
+  if not ctx.mode then ---@cast key string
+    return make_child { mode = vim.split(key, ''), opts = { noremap = true } }
+  end
+
+  local opts = extend(ctx.opts, { [key] = true })
   if opts.expr then opts.replace_keycodes = true end
-  return setmetatable({}, {
-    __index = function(self, flag)
-      local _opts = vim.deepcopy(opts or {}, true)
-      if type(flag) == 'number' then
-        _opts.buffer = flag
-      else
-        _opts[flag] = true
-      end
-      rawset(self, flag, new_mapper(mode, _opts))
-      return rawget(self, flag)
-    end,
-    __newindex = function(_, lhs, rhs)
-      if type(rhs) == 'function' then
-        opts.callback = rhs
-        rhs = ''
-      end
-      local buf = opts.buffer == true and 0 or opts.buffer --[[@as integer]]
-      if buf then
-        opts.buffer = nil ---@type integer?
-        for _, m in ipairs(mode) do
-          api.nvim_buf_set_keymap(buf, m, lhs, rhs, opts)
-        end
-        opts.buffer = buf
-      else
-        for _, m in ipairs(mode) do
-          api.nvim_set_keymap(m, lhs, rhs, opts)
-        end
-      end
-      opts.callback = nil
-    end,
-  })
+  if opts.remap then
+    opts.remap, opts.noremap = nil, false
+  end
+  return make_child { opts = opts }
 end
 
 ---@type table
 M.map = setmetatable({}, {
-  ---@param mode string
-  __index = function(self, mode)
-    rawset(self, mode, new_mapper(vim.split(mode, ''), {}))
-    return rawget(self, mode)
-  end,
+  __index = function(self, key) return make_map { parent = self, key = key } end,
 })
 
 M.augroup = setmetatable({}, {
