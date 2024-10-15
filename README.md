@@ -2,9 +2,6 @@
 > experiment
 
 ## map
-* no `remap`, always use `noremap`
-* when use `expr`, always `replace_keycodes`
-
 ```lua
 local map = require('m.m').map
 map.nx.expr['C'] = [[v:register ==# '+' ? '"kC' : '"'.v:register.'C']]
