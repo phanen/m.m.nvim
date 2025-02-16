@@ -21,16 +21,26 @@ local function make_map(ctx)
       __newindex = function(_, lhs, rhs)
         if type(rhs) == 'function' then
           opts.callback, rhs = rhs, ''
+          opts.replace_keycodes = opts.expr
         end
         if buf then
           for _, m in ipairs(mode) do
-            api.nvim_buf_set_keymap(buf, m, lhs, rhs, opts)
+            if rhs then
+              api.nvim_buf_set_keymap(buf, m, lhs, rhs, opts)
+            else
+              api.nvim_buf_del_keymap(buf, m, lhs)
+            end
           end
         else
           for _, m in ipairs(mode) do
-            api.nvim_set_keymap(m, lhs, rhs, opts)
+            if rhs then
+              api.nvim_set_keymap(m, lhs, rhs, opts)
+            else
+              api.nvim_del_keymap(m, lhs)
+            end
           end
         end
+        opts.replace_keycodes = nil
         opts.callback = nil
       end,
     })

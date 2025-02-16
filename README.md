@@ -7,13 +7,16 @@
 
 ```lua
 local map = require('m.m').map
-map.nx.expr['C'] = [[v:register ==# '+' ? '"kC' : '"'.v:register.'C']]
-map.nx['<c-p>'] = '"kP'
+map.nx[' ff'] = require('fzf-lua').files
 
--- buffer-local
-local n = map[0].n
-n['u'] = '<c-u>'
-n['a'] = '<c-u>'
+-- delete keymap
+map.nx['<c-p>'] = nil
+
+-- or buffer-local
+map[bufnr].nx['<c-p>'] = nil
+
+-- expr map on string work just like viml (replace_keycodes=nil)
+map.n.expr.S = [['<cmd>'.v:count.'InspectTree<cr>']]
 ```
 
 ## autogroup
